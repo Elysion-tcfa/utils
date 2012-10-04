@@ -1,0 +1,90 @@
+#!/bin/bash
+
+#Arguments: file_name data_dir [timelimit]
+
+#Preparation
+TmpName='/tmp/progfile' #make sure no file conflicts
+TmpOutput='/tmp/outfile'
+TmpEval='/tmp/evalfile'
+ProgName=$1
+DataDir=$2
+if [ "$#" -gt 2 ]; then
+	TimeLimit=$3
+else
+	TimeLimit=1
+fi
+Suffix=${ProgName##*.}
+
+#Compilation
+case ${Suffix} in
+	"cpp")
+		g++ -O2 "${ProgName}" -o "${TmpName}";;
+	"c")
+		gcc -O2 "${ProgName}" -o "${TmpName}";;
+	"pas")
+		fpc -O2 "${ProgName}" -o"${TmpName}";;
+	*)
+		echo "File extension not supported"
+		exit
+esac
+
+if [ "$?" != 0 ]
+then
+	echo "Compile Error"
+	exit
+fi
+
+#Evaluation
+Total_Time=0
+Total=0
+cnt=0
+input_list=$(find ${DataDir} -regex '.*\.in[.0-9]*')
+
+echo "-------------------------------------------------------------------"
+for i in ${input_list}; do
+	used_time=`{ /usr/bin/time -f %U timeout "${TimeLimit}" "${TmpName}" < "${i}" > "${TmpOutput}"; } 2>&1`
+
+	case $? in
+		0)
+			for j in {"out","ans","ou"}; do
+				output_file=`echo ${i} | sed -e "s/\.in/\.${j}/g"`
+				if [ -e ${output_file} ] && [ "${j##.*}" != "in" ]; then break; fi
+			done
+			diff -b ${TmpOutput} ${output_file} -q > ${TmpEval}
+			if [ $? -eq 0 ]; then
+				Status="Accepted"
+			else
+				Status="Wrong Answer"
+			fi
+			;;
+		124)
+			Status="Time Limit Exceeded";;
+		*)
+			Status="Runtime Error";;
+	esac
+
+	used_time=`echo "${used_time}" | tail -1`
+	let cnt=${cnt}+1
+	printf "Test Case %4d : %20s       Time: %6.2f s\n" "${cnt}" "${Status}" "${used_time}"
+
+	if [ "$Status" = "Accepted" ]; then 
+		let Total=${Total}+1
+	fi
+	Total_Time=`echo ${Total_Time}+${used_time} | bc`
+done
+
+if [ -e ${TmpName} ]; then
+	rm ${TmpName}
+fi
+if [ -e ${TmpOutput} ]; then
+	rm ${TmpOutput}
+fi
+if [ -e ${TmpEval} ]; then
+	rm ${TmpEval}
+fi
+
+echo "-------------------------------------------------------------------"
+echo "Total used time: $Total_Time s"
+echo "Total case(s): $cnt"
+echo "Accepted case(s): $Total"
+echo "Done"
