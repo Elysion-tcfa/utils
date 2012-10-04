@@ -1,7 +1,7 @@
 #!/usr/bin/python2
 import sys
 if len(sys.argv) > 2:
-	print >> sys.stderr, "error"
+	print >> sys.stderr, "Error: too many arguments, run 'qfree -h' for help"
 	quit(2)
 if len(sys.argv) == 1:
 	arg = "--help"
