@@ -1,0 +1,64 @@
+#!/usr/bin/python2
+import sys
+if len(sys.argv) > 2:
+	print >> sys.stderr, "error"
+	quit(2)
+if len(sys.argv) == 1:
+	arg = "--help"
+else:
+	arg = sys.argv[1]
+if arg == "--help" or arg == "-h":
+	print '''Usage: qfree [host|options]
+Options:
+  -u, --update  update free ip list
+  -h, --help    display this help'''
+else:
+	import os
+	try_max = 10
+	fpath = os.getenv("HOME") + "/.freeiptable"
+	if arg == "--update" or arg == "-u":
+		import urllib2
+		cnterr = 0
+		while True:
+			try:
+				conn = urllib2.urlopen("https://its.pku.edu.cn/oper/liebiao.jsp", timeout = 10)
+				break
+			except KeyboardInterrupt:
+				print >> sys.stderr, "Keyboard Interrupt"
+				quit(2)
+			except:
+				cnterr += 1;
+				if cnterr == try_max:
+					print >> sys.stderr, "Exception raised for", try_max, "times, update failed."
+					quit(1)
+				else:
+					print >> sys.stderr, "Exception raised, retrying... #" + str(cnterr)
+		while conn.readline()[0:4] != "<pre": pass
+		conn.readline(); conn.readline()
+		fp = open(fpath, "w")
+		print >> sys.stderr, "Writing data into data file", fpath, "..."
+		s = conn.readline()
+		while s[0:6] != "</pre>":
+			fp.write(s)
+			s = conn.readline()
+		fp.close()
+		print >> sys.stderr, "Update succeeded."
+	else:
+		try:
+			fp = open(fpath, "r")
+		except:
+			print >> sys.stderr, "Cannot open data file", fpath, ", have you run 'qfree -u'?"
+			quit(1)
+		import socket
+		try:
+			curip = socket.gethostbyname(arg)
+		except:
+			print >> sys.stderr, "Unknown host", arg, ", query failed."
+			quit(1)
+		print "Resolved IP address:", curip
+		for s in fp.readlines():
+			t = filter(lambda x: len(x) > 2, s.split(" "))
+			if map(lambda x, y, z: (int(x) & int(y)) - int(z), curip.split("."), t[2].split("."), t[0].split(".")) == [0, 0, 0, 0]:
+				print "Query succeeded: Yes, it is in the free ip list."
+				quit(0)
+		print "Query succeeded: No, it is not in the free ip list."
