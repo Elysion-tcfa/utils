@@ -1,0 +1,26 @@
+#!/usr/bin/python2
+import pcap, dpkt, socket, sys
+def process(ts, pkt):
+	eth = dpkt.ethernet.Ethernet(pkt)
+	ip = eth.data
+	if ip.__class__ == dpkt.ip.IP:
+		tcp = ip.data
+		if tcp.__class__ == dpkt.tcp.TCP:
+			print '====================TCP/IPv4 packet from (%s, %d) to (%s, %d)====================' % (socket.inet_ntoa(ip.src), tcp.sport, socket.inet_ntoa(ip.dst), tcp.dport)
+			print tcp.data
+			print '================================================================================'
+	elif ip.__class__ == dpkt.ip6.IP6:
+		tcp = ip.data
+		if tcp.__class__ == dpkt.tcp.TCP:
+			print '====================TCP/IPv6 packet from (%s, %d) to (%s, %d)====================' % (socket.inet_ntop(socket.AF_INET6, ip.src), tcp.sport, socket.inet_ntop(socket.AF_INET6, ip.dst), tcp.dport)
+			print tcp.data
+			print '================================================================================'
+
+try:
+	pc = pcap.pcap(sys.argv[2])
+except IndexError:
+	pc = pcap.pcap()
+try:
+	pc.loop(int(sys.argv[1]), process)
+except (IndexError, ValueError):
+	pc.loop(0, process)
