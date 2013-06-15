@@ -1,0 +1,40 @@
+#!/usr/bin/python2
+import httplib, urllib, re, sys, getpass
+if len(sys.argv) < 2 or not sys.argv[1] in ['connectfree', 'connectglobal', 'disconnect', 'disconnectall']:
+	print 'Usage:', sys.argv[0], 'connectfree/connectglobal/disconnect/disconnectall'
+	quit()
+conn = httplib.HTTPSConnection('its.pku.edu.cn')
+if sys.argv[1] == 'disconnect':
+	conn.request('GET', '/disconnetipgw.do')
+	data = conn.getresponse().read()
+	info = re.search(r'IPGWCLIENT_START (.*) IPGWCLIENT_END', data).group(1)
+	print info
+	quit()
+try:
+	username, password = map(lambda x: x.strip('\n'), open('.ipgw.conf').readlines())
+except:
+	print 'Username:',
+	username = raw_input()
+	password = getpass.getpass()
+	fp = open('.ipgw.conf', 'w')
+	fp.write('\n'.join([username, password, '']))
+	fp.close()
+conn.request('POST', '/cas/login', urllib.urlencode({'username1': username, 'password': password, 'username': username + '|;kiDrqvfi7d$v0p5Fg72Vwbv2;|' + password + '|;kiDrqvfi7d$v0p5Fg72Vwbv2;|12'}), {'Content-Type': 'application/x-www-form-urlencoded'})
+res = conn.getresponse()
+loc = res.getheader('location')
+cookie = res.getheader('set-cookie')
+res.read()
+if loc != 'https://its.pku.edu.cn/netportal/':
+	print 'Login error'
+	quit(1)
+loginuid = re.search(r'loginuid=(\w+)', cookie).group(1)
+jsessionid = re.search(r'JSESSIONID=(\w+)', cookie).group(1)
+if sys.argv[1] == 'connectfree':
+	conn.request('GET', '/netportal/ipgwopen', headers = {'Cookie': 'loginuid=' + loginuid + ';JSESSIONID=' + jsessionid})
+elif sys.argv[1] == 'disconnectall':
+	conn.request('GET', '/netportal/ipgwcloseall', headers = {'Cookie': 'loginuid=' + loginuid + ';JSESSIONID=' + jsessionid})
+else:
+	conn.request('GET', '/netportal/ipgwopenall', headers = {'Cookie': 'loginuid=' + loginuid + ';JSESSIONID=' + jsessionid})
+data = conn.getresponse().read()
+info = re.search(r'IPGWCLIENT_START (.*) IPGWCLIENT_END', data).group(1)
+print info
