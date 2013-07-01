@@ -1,0 +1,49 @@
+#!/usr/bin/python2
+# -*- coding: utf-8 -*-
+import httplib, urllib, os, re, getpass
+import xml.dom.minidom as xmldom
+import pkucaptcha
+
+conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
+conn.request('POST', '/iaaa/oauth.jsp', urllib.urlencode({'appID': 'dean', 'appName': '北京大学教务部网上学生服务中心', 'redirectUrl': 'http://dean.pku.edu.cn/student/center2.php'}), {'Content-Type': 'application/x-www-form-urlencoded'})
+res = conn.getresponse()
+jsessionid = re.match(r'JSESSIONID=([^;]+)', res.getheader('Set-Cookie')).group(1)
+conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
+conn.request('GET', '/iaaa/servlet/DrawServlet', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid })
+res = conn.getresponse()
+s = res.read()
+fp = open('captcha.jpg', 'w')
+fp.write(s)
+fp.close()
+ans = pkucaptcha.identify('captcha.jpg')
+print 'Username:',
+username = raw_input()
+password = getpass.getpass()
+os.remove('captcha.jpg')
+conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
+conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password, 'randCode': ans}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
+res = conn.getresponse()
+s = res.read()
+if s.find('\'success\':true') == -1:
+	print 'Login error'
+	quit(1)
+token = re.search('token:\'(\w+)\'', s).group(1)
+conn = httplib.HTTPConnection('dean.pku.edu.cn')
+conn.request('GET', '/student/center2.php?token=%s' % token)
+res = conn.getresponse()
+phpsessid = re.match(r'PHPSESSID=([^;]+)', res.getheader('Set-Cookie')).group(1)
+res.read()
+conn.request('GET', '/student/grade.php?PHPSESSID=%s' % phpsessid, headers = {'Cookie': 'PHPSESSID=%s' % phpsessid })
+res = conn.getresponse()
+s = res.read().decode('gbk').encode('utf-8')
+t = re.sub(r'align=center colspan=5', '', re.sub(r'(<tr.*?>(<td.*?>.*?</td>)*)', r'\1</tr>', re.search(r'<table.*?>((<tr>.*?)*<tr type=\'text/css\' >.*?)*</table>', s).group(1)))
+dom = xmldom.parseString('<table>' + t + '</table>')
+for coursenode in dom.firstChild.childNodes[: -1]:
+	arr = map(lambda x: x.firstChild.data.strip(), coursenode.childNodes[2: ])
+	while len(arr[3].encode('gbk')) > 20: arr[3] = arr[3][: -1]
+	arr[2] = arr[2] + ' ' * (10 - len(arr[2].encode('gbk')))
+	arr[3] = arr[3] + ' ' * (20 - len(arr[3].encode('gbk')))
+	print "%8s %4s   %s %s %5s %6s" % tuple(arr)
+print '当前平均绩点:', dom.firstChild.childNodes[-1].childNodes[3].firstChild.firstChild.data.strip()
+conn.request('GET', '/student/exit.php?PHPSESSID=%s' % phpsessid, headers = {'Cookie': 'PHPSESSID=%s' % phpsessid })
+conn.getresponse().read()
