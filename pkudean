@@ -37,6 +37,7 @@ conn.request('GET', '/student/grade.php?PHPSESSID=%s' % phpsessid, headers = {'C
 res = conn.getresponse()
 s = res.read().decode('gbk').encode('utf-8')
 t = re.sub(r'align=center colspan=5', '', re.sub(r'(<tr.*?>(<td.*?>.*?</td>)*)', r'\1</tr>', re.search(r'<table.*?>((<tr>.*?)*<tr type=\'text/css\' >.*?)*</table>', s).group(1)))
+t = re.sub(r'&(\w+[^;])', r'&amp;\1', t) # ,b dean
 dom = xmldom.parseString('<table>' + t + '</table>')
 for coursenode in dom.firstChild.childNodes[: -1]:
 	arr = map(lambda x: x.firstChild.data.strip(), coursenode.childNodes[2: ])
