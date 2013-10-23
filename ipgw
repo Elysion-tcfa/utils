@@ -13,7 +13,7 @@ if sys.argv[1] == 'disconnect':
 try:
 	username, password = map(lambda x: x.strip('\n'), open('.ipgw.conf').readlines())
 except:
-	print 'Username:',
+	sys.stderr.write('Username: ')
 	username = raw_input()
 	password = getpass.getpass()
 	fp = open('.ipgw.conf', 'w')
@@ -29,12 +29,20 @@ if loc != 'https://its.pku.edu.cn/netportal/':
 	quit(1)
 loginuid = re.search(r'loginuid=(\w+)', cookie).group(1)
 jsessionid = re.search(r'JSESSIONID=(\w+)', cookie).group(1)
+headers = {'Cookie': 'loginuid=' + loginuid + ';JSESSIONID=' + jsessionid + ';FromNewLogin=yes'}
+conn.request('GET', '/netportal/', headers = headers)
+res = conn.getresponse()
+loc = res.getheader('location')[22:]
+res.read()
+conn.request('GET', loc, headers = headers)
+res = conn.getresponse()
+res.read()
 if sys.argv[1] == 'connectfree':
-	conn.request('GET', '/netportal/ipgwopen', headers = {'Cookie': 'loginuid=' + loginuid + ';JSESSIONID=' + jsessionid})
+	conn.request('GET', '/netportal/ipgwopen', headers = headers)
 elif sys.argv[1] == 'disconnectall':
-	conn.request('GET', '/netportal/ipgwcloseall', headers = {'Cookie': 'loginuid=' + loginuid + ';JSESSIONID=' + jsessionid})
-else:
-	conn.request('GET', '/netportal/ipgwopenall', headers = {'Cookie': 'loginuid=' + loginuid + ';JSESSIONID=' + jsessionid})
+	conn.request('GET', '/netportal/ipgwcloseall', headers = headers)
+elif sys.argv[1] == 'connectglobal':
+	conn.request('GET', '/netportal/ipgwopenall', headers = headers)
 data = conn.getresponse().read()
 info = re.search(r'IPGWCLIENT_START (.*) IPGWCLIENT_END', data).group(1)
 print info
