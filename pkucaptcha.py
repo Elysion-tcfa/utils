@@ -1,6 +1,6 @@
 import cv, math, zlib, base64
-data = 'eJztWstu2zAQ/BXffNGBTNGkza1N2wR9BEEfSVsjX1Lk3xMKNsx9zO6SlmIBDSAU6M6KXM7MUqKcf+tX6/PVZpOHVaLXUyTfD6tNEki5tkim1w7JUWQ71RYBFUikukeO1lZBhuuhK8UVaFU/QeuTHmLzRMRGKedhjuzDBCFhTkXmiBKOmEtDCrGvR2Kbbw0U0oMQXV1pF+3Ys25iG4vHVER9mXVfYseSGyJebnY5QAqxp7utgOikrMzTDPDY6l4OagXpYnMQew9bFoNyKUkBzb5Sjf224h+0rDk6Wi6muIGLxuUm3S1my5mg8JkJcnqgfWv/vwH80wFMdTH/MTBVoNlzUZCNeTxDONUW/t/R/UeSQhcdSyG+my1Fqgc0kiM2pOid5njf86gwo4oH7FGlFDUv8NPEtINmJDKBbsFKEljdcUFQrblOjyHAbeH/PXhNEkUJWXQbxhFzHo0WUFvMnNiTAEkcwRyI2gqxH5f5Ym8Wj+k7vIJwbd6J6QMm1h3aKipAgSvSwnGz/oA5BH+A/yLTpbmx76aBO9dgb++Z45IJ7yk1Ky583InX/Hg44A/zX2T6hLoJiAwWPXFY+MQMz1kJDRfGrirGJu7PyXFsjBh+7Po78SLTFyyTaaB9BL9i6DgfqwkPtANfbPz+WH3e+gL8BPhlMn0Gpzn07ewlTGOUaOIV4J+R9m9025cC7SdwbIi3lSkTpX1JfOZEDhIXz55ItJ4qUZd79MZX4wH3/KeDJSP8ck4u1w1vDnpbWJ3Thuv2b8JbrNuP16buxLOP1/6/mfaTSNtnB4+otg8Sy+mZQuwP7UdkzCqgtONVPuuUcPcM6MGLfno2woHmpFMKTgpj3w0reoaErADq5bI78WDDmNLD+j2cpzzLS+wv+6xhzvH/gYpXlB7QelJxycj/T+Nbq9V7iRege2hA+8ILHsaLTHegTZS2twxlpsu5kenAD12p+tdLT1U6D/alq1nKfcdIh4sAx1IUmTm9OO3WfNMWdkEpwCIBF3na8v9OnYLcNkeKKksopUj1J3QoUhn2FDDp94j17O2R4TGxXJxfo0y/FyRTQIZDZTpofLP+g/gx+S8y/Z3/rx6FXKZQnoQmeSFE4SRyQm1g5/7hEXWpL4s='
-chars = '2356789ABCDEFGHJKLMNPRSTUVWXYZ'
+data = 'eJztWsmOFUcQ/JW5zWUOXWCw8Q2zWd5k2YAxozmAV9kCeZF38e9Qgx6vKjMiMqvfa6bHM9IcICO7OzMisrq6X/93eOXw/YPj43J0MPV/ryLl5OjgeHLItEVK/1fBipTdkeY6IGyRbbhDuvAWseGuU1sh5WASyCvo8J0NsYn6W/rHQCSZudQY2LIwAGIiJEtSeEDCAFj5v97zHxHl7A2NIkFtJAumh22yoO2JXjMF+lYmABKGCLeV//ca/u3RlsUc/8Ng61WpeRb0/u/FmcO/lDXBP6q28v/BKf/gUOU11MswIq/jRoHXlqhAkkyQySKcA0jsbUJs1JxsMW8o5anIc2eNy/ojATL2bWS6y2QiR5Oi9xzOGO3tVNKHK2MfNoytzDgOx395/Kzrn4lXmT5yG8vGN5dhEZaTV0C4nY5PxHRkHh8uDpKfylNiPxtYdnwKusB8vLiUYdykkLHuTjcDb908Ey8xvrl+lenz/e4nx/ZsEVFju7n1zEwl9gtBbEQvvQCRx4s/E0/Kr3BOUITblHn9bVNS/r/Pt/2RBxscF7gt8xLfAa8yPZR3k9IpIVLkW55pNMVn9ebcZ0obdlOy55Q3YEInL9Wj1I0fMhwpIOmXrEV8JMggTOx0fln/TvxI/qtMj8XCpzd9UlQplxQqYXxOXgoBnCyw8X265BPFZEmChaAXy654JOASCK+AV+06rcR+i3564e4bQNprNUik/QqJ5VWTTiux38N3+uh0aJDQTpzFyDCvI1ap+HHh1wGR2YnCCztpYaQS+5P/3c6t8W5Udcb5C3CZp40BnzsDXljL/NJT0fV3gW59e1h1Ukil/DdPufYtPOdbCtSC/+TrNRepH1EwNEdsyzgAtnjP1a6gdUgIVqL+JkQRInijpMtMoXgbQpD+GDAbujbSaaXi3xk/IXL7cPkjbVF7ekxFgShcm70650OwzRkTXUsEKcXV7UB6ttlbfWAHzp2uuhJ7bfbzMxCWS55E0EDJttZL7LvLv5goARVjrywKQJwY4IAjuipkEOAIgVRib5BPt9DRSDN7AAC5QyLQn1Y8z3aqmla45KGZOxIkiLxLb2Eb/m+SX/iJ7rmUru/FUkwVvGswAPkUrHTAPUnh8kI84dcmpap5i3+IOoGukXmBtnQmGklodWcLkmplnxFDhNvK/5113n+d0Tiy3wrStUXvr+9JY4feDuxdLD5quIVxR9BMvOUnwkfM/8b/H+snX9rmNgLw7r8Wt+cawkGh1odSJnl8rr6ovwQ/CX4bmatMn/bLFDQkmUuctXCi57GLL5xoQTs1yya2lJR9JQpvfImezdFkcMMJH4owqJ9sX8l2lDw5iTCYMtEl4qQy9mDH130XCwR+DR/yvAda/r8SbxFhUK2xJL2w2l2Ev4ct2fSpSbfBeekwCxx3Fum0CbzjoJGF06vTvl7RV0QRbgYGdQ0KOW+4/TuV6Yl4p0TXGvSWxYkSyYXOhhBoNrJ37BH7h++cp0il4htGBamPrNPjd/M5YXdJUiBqpzb7HWqWi46uPOFmHTWEMRReqNkfyD4NmULqKwteEkEV8Kq9rD2CrgPHmV9H/eJXKf9Zf+8r99kzQOdSi9AlA53Wnl8+hiWPjK4ZVRv12ahZ+X8mPkPxEdCDdY8aC3r26An9MpfI9ytZnuVMrnDF6mvjVctOkcf3i1TKf4c3CXTLQnOLpgLtN1CzaCN3Yh65Hbmc1tcL8B/B9yLnCEHulhNhlP0LUWHFiq6eSiw4sZh64T/Wlei76p2KWZE2x4lVoH/+nx+BAU/gZ86ZYBkFAYkaPHnxEiqAO44='
+chars = '23456789ABCDEFGHJKLMNPRSTUVWXYZabcdefghjkmnpqrsuvwxyz'
 charims = eval(zlib.decompress(base64.decodestring(data)))
 def identify(filepath):
 	im = cv.LoadImage(filepath)
@@ -32,18 +32,24 @@ def identify(filepath):
 				error = h * w * 0.1
 				for k in range(0, h):
 					for l in range(0, w):
-						if j + k >= im.height or i + l >= im.width:
+						if j + k >= im.height:
+							nowerror += 5
+						elif i + l >= im.width:
 							if charims[ch][k][l] == 0:
 								nowerror += 0.4
 						elif imarr[j + k][i + l] != charims[ch][k][l]:
-							nowerror += 1
+							if imarr[j + k][i + l] == 1: nowerror += 3
+							else: nowerror += 1*1/(1+((k-h/2)/h*(l-w/2)/w)*((k-h/2)/h*(l-w/2)/w)*9)
 						if nowerror > error: break
 					if nowerror > error: break
 				if nowerror <= error:
-					chlist.append((nowerror, ch))
+					chlist.append((nowerror*1.0/h/w, ch, h*w))
 			if chlist == []: continue
 			chlist.sort()
-			ch = chlist[0][1]
+			ch, size = chlist[0][1:]
+			for k in range(1, len(chlist)):
+				if chlist[k][0] - chlist[0][0] > 0.02: break
+				if chlist[k][2] > size: ch, size = chlist[k][1:]
 			h = len(charims[ch])
 			w = len(charims[ch][0])
 			for k in range(0, h):
