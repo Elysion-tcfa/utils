@@ -1,5 +1,5 @@
 #!/usr/bin/python2
-import httplib, urllib, re, sys, getpass
+import httplib, urllib, re, sys, getpass, os
 if len(sys.argv) < 2 or not sys.argv[1] in ['connectfree', 'connectglobal', 'disconnect', 'disconnectall']:
 	print 'Usage:', sys.argv[0], 'connectfree/connectglobal/disconnect/disconnectall'
 	quit()
@@ -31,6 +31,9 @@ cookie = res.getheader('set-cookie')
 res.read()
 if loc != 'https://its.pku.edu.cn/netportal/':
 	print 'Login error'
+	if re.search(r'e=4', loc) != None:
+		print 'Captcha needed'
+	os.remove('.ipgw.conf')
 	quit(3)
 loginuid = re.search(r'loginuid=(\w+)', cookie).group(1)
 jsessionid = re.search(r'JSESSIONID=(\w+)', cookie).group(1)

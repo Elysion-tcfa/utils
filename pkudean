@@ -24,10 +24,10 @@ conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
 conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password, 'randCode': ans}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
 res = conn.getresponse()
 s = res.read()
-if s.find('\'success\':true') == -1:
+if s.find('"success":true') == -1:
 	print 'Login error'
 	quit(1)
-token = re.search('token:\'(\w+)\'', s).group(1)
+token = re.search('"token":"(\w+)"', s).group(1)
 conn = httplib.HTTPConnection('dean.pku.edu.cn')
 conn.request('GET', '/student/center2.php?token=%s' % token)
 res = conn.getresponse()
