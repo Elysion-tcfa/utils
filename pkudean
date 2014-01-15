@@ -4,28 +4,61 @@ import httplib, urllib, os, re, getpass
 import xml.dom.minidom as xmldom
 import pkucaptcha
 
+print 'Username:',
+username = raw_input()
+password = getpass.getpass()
+
+conn = httplib.HTTPConnection('portal.pku.edu.cn')
+conn.request('GET', '/infoPortal/')
+res = conn.getresponse()
+jsessionid = re.search(r'JSESSIONID=(\w+)', res.getheader('set-cookie')).group(1)
+res.read()
+while True:
+	conn.request('GET', '/infoPortal/DrawServlet', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid})
+	fp = open('captcha.jpg', 'w')
+	fp.write(conn.getresponse().read())
+	fp.close()
+	ans = pkucaptcha.identify('captcha.jpg')
+	os.remove('captcha.jpg')
+	conn.request('POST', '/infoPortal/login.do', urllib.urlencode({'userid': username, 'password': password, 'validCode': ans}), headers = {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
+	res = conn.getresponse()
+	jsessionid = re.search(r'JSESSIONID=(\w+)', res.getheader('set-cookie')).group(1)
+	s = res.read()
+	form = re.search(r'<form method="post" name="backingFileLoginForm.*?>(.*?)</form>', s, re.DOTALL)
+	if form != None:
+		err = re.search(r'<font color="red">(.*?)</font>', form.group(1)).group(1)
+		if err.find('验证码') == -1:
+			print 'Error:', err
+			quit(1)
+		else:
+			print 'Debug: error in identifying captcha, retrying'
+	else: break
+conn.request('GET', '/infoPortal/appmanager/myPortal/myDesktop?_nfpb=true&_pageLabel=myPortal_page_54', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid})
+s = conn.getresponse().read()
+table = re.search(r'<table class="pkuportal-table-portlet".*?>(.*?)</table>', s, re.DOTALL).group(0)
+table = re.sub(r'&nbsp;', ' ', table)
+dom = xmldom.parseString(table)
+nodes = dom.firstChild.childNodes
+portaldata = []
+for i in range(3, len(nodes), 2):
+	portaldata.append(map(lambda x: x.firstChild.firstChild.data.strip(), [nodes[i].childNodes[1], nodes[i].childNodes[3], nodes[i].childNodes[5], nodes[i].childNodes[7], nodes[i].childNodes[9]]))
+year, term = max(map(lambda x: x[: 2], portaldata))
+portaldata = filter(lambda x: x[: 2] == [year, term], portaldata)
+conn.request('GET', '/infoPortal/logout.do', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid})
+conn.getresponse().read()
+conn.close()
+
 conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
 conn.request('POST', '/iaaa/oauth.jsp', urllib.urlencode({'appID': 'dean', 'appName': '北京大学教务部网上学生服务中心', 'redirectUrl': 'http://dean.pku.edu.cn/student/center2.php'}), {'Content-Type': 'application/x-www-form-urlencoded'})
 res = conn.getresponse()
 jsessionid = re.match(r'JSESSIONID=([^;]+)', res.getheader('Set-Cookie')).group(1)
 conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
-conn.request('GET', '/iaaa/servlet/DrawServlet', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid })
-res = conn.getresponse()
-s = res.read()
-fp = open('captcha.jpg', 'w')
-fp.write(s)
-fp.close()
-ans = pkucaptcha.identify('captcha.jpg')
-os.remove('captcha.jpg')
-print 'Username:',
-username = raw_input()
-password = getpass.getpass()
-conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
-conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password, 'randCode': ans}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
+conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
 res = conn.getresponse()
 s = res.read()
 if s.find('"success":true') == -1:
-	print 'Login error'
+	err = re.search(r'"msg":"([^"]*)"', s).group(1)
+	print 'Error:', err
 	quit(1)
 token = re.search('"token":"(\w+)"', s).group(1)
 conn = httplib.HTTPConnection('dean.pku.edu.cn')
@@ -39,12 +72,21 @@ s = res.read().decode('gbk').encode('utf-8')
 t = re.sub(r'align=center colspan=5', '', re.sub(r'(<tr.*?>(<td.*?>.*?</td>)*)', r'\1</tr>', re.search(r'<table.*?>((<tr>.*?)*<tr type=\'text/css\' >.*?)*</table>', s).group(1)))
 t = re.sub(r'&(\w+[^;])', r'&amp;\1', t) # ,b dean
 dom = xmldom.parseString('<table>' + t + '</table>')
-for coursenode in dom.firstChild.childNodes[: -1]:
-	arr = map(lambda x: x.firstChild.data.strip(), coursenode.childNodes[2: ])
-	while len(arr[3].encode('gbk')) > 20: arr[3] = arr[3][: -1]
-	arr[2] = arr[2] + ' ' * (10 - len(arr[2].encode('gbk')))
-	arr[3] = arr[3] + ' ' * (20 - len(arr[3].encode('gbk')))
-	print "%8s %4s   %s %s %5s %6s" % tuple(arr)
-print '当前平均绩点:', dom.firstChild.childNodes[-1].childNodes[3].firstChild.firstChild.data.strip()
+deandata = map(lambda y: map(lambda x: x.firstChild.data.strip(), y.childNodes[2: ]), dom.firstChild.childNodes[: -1])
 conn.request('GET', '/student/exit.php?PHPSESSID=%s' % phpsessid, headers = {'Cookie': 'PHPSESSID=%s' % phpsessid })
 conn.getresponse().read()
+conn.close()
+for item in portaldata:
+	exists = False
+	for item2 in deandata:
+		if item2[3][: len(item[2])] == item[2]:
+			exists = True
+			break
+	if not exists:
+		deandata.append(['', item[4], item[3], item[2], '', ''])
+for item in deandata:
+	while len(item[3].encode('gbk')) > 20: item[3] = item[3][: -1]
+	item[2] = item[2] + ' ' * (10 - len(item[2].encode('gbk')))
+	item[3] = item[3] + ' ' * (20 - len(item[3].encode('gbk')))
+	print "%8s %4s   %s %s %5s %6s" % tuple(item)
+print '当前平均绩点:', dom.firstChild.childNodes[-1].childNodes[3].firstChild.firstChild.data.strip()
