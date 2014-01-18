@@ -1,6 +1,6 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
-import multiprocessing, getpass
+import multiprocessing
 
 def action_portal(pipe):
 	import httplib, urllib, re, os
@@ -27,6 +27,7 @@ def action_portal(pipe):
 				conn.request('POST', '/infoPortal/login.do', urllib.urlencode({'userid': username, 'password': password, 'validCode': ans}), headers = {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
 				break
 			except:
+				conn.close()
 				conn = httplib.HTTPConnection('portal.pku.edu.cn')
 		res = conn.getresponse()
 		jsessionid = re.search(r'JSESSIONID=(\w+)', res.getheader('set-cookie')).group(1)
@@ -66,11 +67,18 @@ def action_dean(pipe):
 	conn.request('POST', '/iaaa/oauth.jsp', urllib.urlencode({'appID': 'dean', 'appName': '北京大学教务部网上学生服务中心', 'redirectUrl': 'http://dean.pku.edu.cn/student/center2.php'}), {'Content-Type': 'application/x-www-form-urlencoded'})
 	res = conn.getresponse()
 	jsessionid = re.search(r'JSESSIONID=([^;]+)', res.getheader('Set-Cookie')).group(1)
+	res.read()
 	username, password = pipe.recv().split('\n')
-	conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
-	conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
+	for i in range(0, 2):
+		try:
+			conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
+			break
+		except:
+			conn.close()
+			conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
 	res = conn.getresponse()
 	s = res.read()
+	conn.close()
 	if s.find('"success":true') == -1:
 		err = re.search(r'"msg":"([^"]*)"', s).group(1)
 		print 'Dean error:', err
@@ -94,41 +102,43 @@ def action_dean(pipe):
 	conn.getresponse().read()
 	conn.close()
 
-portalpair = multiprocessing.Pipe()
-deanpair = multiprocessing.Pipe()
-portalp = multiprocessing.Process(target = action_portal, args = (portalpair[1], ))
-deanp = multiprocessing.Process(target = action_dean, args = (deanpair[1], ))
-portalp.start()
-deanp.start()
+if __name__ == '__main__':
+	portalpair = multiprocessing.Pipe()
+	deanpair = multiprocessing.Pipe()
+	portalp = multiprocessing.Process(target = action_portal, args = (portalpair[1], ))
+	deanp = multiprocessing.Process(target = action_dean, args = (deanpair[1], ))
+	portalp.start()
+	deanp.start()
 
-print 'Username:',
-username = raw_input()
-password = getpass.getpass()
-portalpair[0].send(username + '\n' + password)
-deanpair[0].send(username + '\n' + password)
-portaldata = portalpair[0].recv()
-deandata = deanpair[0].recv()
-if portaldata == 'error' or deandata == 'error':
+	import getpass, sys
+	sys.stderr.write('Username: ')
+	username = raw_input()
+	password = getpass.getpass()
+	portalpair[0].send(username + '\n' + password)
+	deanpair[0].send(username + '\n' + password)
+	portaldata = portalpair[0].recv()
+	deandata = deanpair[0].recv()
+	if portaldata == 'error' or deandata == 'error':
+		portalp.join()
+		deanp.join()
+		quit(1)
+	portaldata = eval(portaldata)
+	deandata, deangpa = eval(deandata)
+
+	for item in portaldata:
+		exists = False
+		for item2 in deandata:
+			if item2[3][: len(item[2])] == item[2]:
+				exists = True
+				break
+		if not exists:
+			deandata.append(['', item[4], item[3], item[2], '', ''])
+	for item in deandata:
+		while len(item[3].encode('gbk')) > 20: item[3] = item[3][: -1]
+		item[2] = item[2] + ' ' * (10 - len(item[2].encode('gbk')))
+		item[3] = item[3] + ' ' * (20 - len(item[3].encode('gbk')))
+		print "%8s %4s   %s %s %5s %6s" % tuple(item)
+	print '当前平均绩点:', deangpa
+
 	portalp.join()
 	deanp.join()
-	quit(1)
-portaldata = eval(portaldata)
-deandata, deangpa = eval(deandata)
-
-for item in portaldata:
-	exists = False
-	for item2 in deandata:
-		if item2[3][: len(item[2])] == item[2]:
-			exists = True
-			break
-	if not exists:
-		deandata.append(['', item[4], item[3], item[2], '', ''])
-for item in deandata:
-	while len(item[3].encode('gbk')) > 20: item[3] = item[3][: -1]
-	item[2] = item[2] + ' ' * (10 - len(item[2].encode('gbk')))
-	item[3] = item[3] + ' ' * (20 - len(item[3].encode('gbk')))
-	print "%8s %4s   %s %s %5s %6s" % tuple(item)
-print '当前平均绩点:', deangpa
-
-portalp.join()
-deanp.join()
