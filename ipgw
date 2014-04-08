@@ -1,73 +1,65 @@
 #!/usr/bin/python2
-import httplib, urllib, re, sys, getpass, os
-if len(sys.argv) < 2 or not sys.argv[1] in ['connectfree', 'connectglobal', 'disconnect', 'disconnectall']:
-	print 'Usage:', sys.argv[0], 'connectfree/connectglobal/disconnect/disconnectall'
+# -*- coding: utf-8 -*-
+import httplib, urllib, socket, re, sys, getpass, os
+if len(sys.argv) < 2 or not sys.argv[1] in ['-c', 'connectfree', 'connectglobal', 'disconnect', 'disconnectall']:
+	print 'Usage:', sys.argv[0], '-c/connectfree/connectglobal/disconnect/disconnectall [-t] [-r]'
+	print '       -c: Clear remembered username and password'
+	print '       -t: Retry until logged in'
+	print '       -r: Remember username and password'
 	quit()
-conn = httplib.HTTPSConnection('its.pku.edu.cn')
-if sys.argv[1] == 'disconnect':
-	conn.request('GET', '/disconnetipgw.do')
-	data = conn.getresponse().read()
-	info = re.search(r'IPGWCLIENT_START (.*) IPGWCLIENT_END', data).group(1)
-	if re.search(r'SUCCESS=(\w+)', info).group(1) == 'YES':
+
+oper = sys.argv[1]
+if oper == '-c':
+	if os.access('.ipgw.conf', os.F_OK): os.remove('.ipgw.conf')
+	quit(0)
+
+retry = False
+remember = False
+for option in sys.argv[2:]:
+	if option == '-t': retry = True
+	if option == '-r': remember = True
+
+username, password = None, None
+while True:
+	try:
+		if not username:
+			try:
+				username, password = map(lambda x: x.strip('\n'), open('.ipgw.conf').readlines())
+			except:
+				sys.stderr.write('Username: ')
+				username = raw_input()
+				password = getpass.getpass()
+		conn = httplib.HTTPSConnection('its.pku.edu.cn', 5428, timeout = 10)
+		argdict = {'uid': username, 'password': password, 'timeout': 10}
+		if oper[0:7] == 'connect':
+			argdict['operation'] = 'connect'
+			argdict['range'] = '1' if oper == 'connectglobal' else '2'
+		else:
+			argdict['operation'] = oper
+			argdict['range'] = '1'
+		conn.request('GET', '/ipgatewayofpku?' + urllib.urlencode(argdict))
+		data = conn.getresponse().read().decode('gbk').encode('utf-8')
+		wlan = False
+		info = re.search(r'IPGWCLIENT_START (.*) IPGWCLIENT_END', data).group(1)
+		if re.search(r'SUCCESS=(\w+)', info).group(1) == 'YES':
 			print 'OK'
-			quit(0)
-	else:
-			print 'Failed'
-			quit(2)
-try:
-	username, password = map(lambda x: x.strip('\n'), open('.ipgw.conf').readlines())
-except:
-	sys.stderr.write('Username: ')
-	username = raw_input()
-	password = getpass.getpass()
+			ret = 0
+			retry = False
+		elif re.search(r'口令错误', info):
+			print 'Failed: Login error'
+			if os.access('.ipgw.conf', os.F_OK): os.remove('.ipgw.conf')
+			ret = 3
+			username, password = None, None
+		else:
+			print 'Failed: ', re.search(r'REASON=([^ ]+)', info).group(1)
+			ret = 2
+			retry = False
+	except (httplib.HTTPException, socket.error):
+		ret = 1
+	if not retry: break
+
+if remember and (ret == 0 or ret == 2):
 	fp = open('.ipgw.conf', 'w')
 	fp.write('\n'.join([username, password, '']))
 	fp.close()
-codedict = {'connectfree': '2', 'connectglobal': '1', 'disconnectall': '3'}
-conn.request('POST', '/cas/login', urllib.urlencode({'username1': username, 'password': password, 'username': username + '|;kiDrqvfi7d$v0p5Fg72Vwbv2;|' + password + '|;kiDrqvfi7d$v0p5Fg72Vwbv2;|1' + codedict[sys.argv[1]]}), {'Content-Type': 'application/x-www-form-urlencoded'})
-res = conn.getresponse()
-loc = res.getheader('location')
-cookie = res.getheader('set-cookie')
-res.read()
-if loc != 'https://its.pku.edu.cn/netportal/':
-	print 'Login error'
-	if re.search(r'e=4', loc) != None:
-		print 'Captcha needed'
-	os.remove('.ipgw.conf')
-	quit(3)
-loginuid = re.search(r'loginuid=(\w+)', cookie).group(1)
-jsessionid = re.search(r'JSESSIONID=(\w+)', cookie).group(1)
-headers = {'Cookie': 'loginuid=' + loginuid + ';JSESSIONID=' + jsessionid + ';FromNewLogin=yes'}
-conn.request('GET', '/netportal/', headers = headers)
-res = conn.getresponse()
-loc = res.getheader('location')[22:]
-res.read()
-conn.request('GET', loc, headers = headers)
-res = conn.getresponse()
-res.read()
-if sys.argv[1] == 'connectfree':
-	conn.request('GET', '/netportal/PKUIPGW?cmd=open&type=free&fr=0', headers = headers)
-elif sys.argv[1] == 'disconnectall':
-	conn.request('GET', '/netportal/PKUIPGW?cmd=close&type=allconn&fr=0', headers = headers)
-elif sys.argv[1] == 'connectglobal':
-	conn.request('GET', '/netportal/PKUIPGW?cmd=open&type=fee&fr=0', headers = headers)
-data = conn.getresponse().read()
-wlan = False
-try:
-        info = re.search(r'IPGWCLIENT_START (.*) IPGWCLIENT_END', data).group(1)
-except:
-        wlan = True
-if wlan:
-        if re.search('OK', data) != None:
-                print 'OK'
-                quit(0)
-        else:
-                print 'Failed'
-                quit(2)
-else:
-        if re.search(r'SUCCESS=(\w+)', info).group(1) == 'YES':
-                print 'OK'
-                quit(0)
-        else:
-                print 'Failed'
-                quit(2)
+quit(ret)

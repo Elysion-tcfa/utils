@@ -1,18 +1,17 @@
 #!/bin/bash
 #Initial wifi interface configuration
 ip link set up dev $1
-sleep 2
 ###########Start DHCP, comment out / add relevant section##########
 #Thanks to Panji
 #Doesn't try to run dhcpd when already running
-#if [ "$(ps -e | grep dhcpd)" == "" ]; then
-#ip addr add 10.0.0.1/24 dev $1
-#dhcpd $1
-#fi
+if [ "$(ps -e | grep dhcpd)" == "" ]; then
+ip addr add 10.0.0.1/24 dev $1
+dhcpd $1
+fi
 ###########
 #Enable NAT
-iptables --table nat --append POSTROUTING --out-interface $2 -j MASQUERADE
-iptables --append FORWARD --in-interface $1 -j ACCEPT
+iptables -t nat -A POSTROUTING -o $2 -j MASQUERADE
+iptables -A FORWARD -i $1 -j ACCEPT
 
 #Thanks to lorenzo
 #Uncomment the line below if facing problems while sharing PPPoE, see lorenzo's comment for more details

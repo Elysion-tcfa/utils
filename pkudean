@@ -11,7 +11,7 @@ def action_portal(pipe):
 	conn = httplib.HTTPConnection('portal.pku.edu.cn')
 	conn.request('GET', '/infoPortal/')
 	res = conn.getresponse()
-	jsessionid = re.search(r'JSESSIONID=(\w+)', res.getheader('set-cookie')).group(1)
+	jsessionid = re.search(r'JSESSIONID=([^;]+)', res.getheader('set-cookie')).group(1)
 	res.read()
 	while True:
 		conn.request('GET', '/infoPortal/DrawServlet', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid})
@@ -30,7 +30,7 @@ def action_portal(pipe):
 				conn.close()
 				conn = httplib.HTTPConnection('portal.pku.edu.cn')
 		res = conn.getresponse()
-		jsessionid = re.search(r'JSESSIONID=(\w+)', res.getheader('set-cookie')).group(1)
+		jsessionid = re.search(r'JSESSIONID=([^;]+)', res.getheader('set-cookie')).group(1)
 		s = res.read()
 		form = re.search(r'<form method="post" name="backingFileLoginForm.*?>(.*?)</form>', s, re.DOTALL)
 		if form != None:
