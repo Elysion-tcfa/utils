@@ -62,4 +62,5 @@ if remember and (ret == 0 or ret == 2):
 	fp = open('.ipgw.conf', 'w')
 	fp.write('\n'.join([username, password, '']))
 	fp.close()
+if ret == 1: print 'Failed: Exception occured'
 quit(ret)
