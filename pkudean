@@ -2,62 +2,6 @@
 # -*- coding: utf-8 -*-
 import multiprocessing
 
-def action_portal(pipe):
-	import httplib, urllib, re, os
-	import xml.dom.minidom as xmldom
-	import pkucaptcha
-
-	username, password = None, None
-	conn = httplib.HTTPConnection('portal.pku.edu.cn')
-	conn.request('GET', '/infoPortal/')
-	res = conn.getresponse()
-	jsessionid = re.search(r'JSESSIONID=([^;]+)', res.getheader('set-cookie')).group(1)
-	res.read()
-	while True:
-		conn.request('GET', '/infoPortal/DrawServlet', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid})
-		fp = open('captcha.jpg', 'w')
-		fp.write(conn.getresponse().read())
-		fp.close()
-		ans = pkucaptcha.identify('captcha.jpg')
-		os.remove('captcha.jpg')
-		if not username:
-			username, password = pipe.recv().split('\n')
-		for i in range(0, 2):
-			try:
-				conn.request('POST', '/infoPortal/login.do', urllib.urlencode({'userid': username, 'password': password, 'validCode': ans}), headers = {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
-				break
-			except:
-				conn.close()
-				conn = httplib.HTTPConnection('portal.pku.edu.cn')
-		res = conn.getresponse()
-		jsessionid = re.search(r'JSESSIONID=([^;]+)', res.getheader('set-cookie')).group(1)
-		s = res.read()
-		form = re.search(r'<form method="post" name="backingFileLoginForm.*?>(.*?)</form>', s, re.DOTALL)
-		if form != None:
-			err = re.search(r'<font color="red">(.*?)</font>', form.group(1)).group(1)
-			if err.find('验证码') == -1:
-				print 'Portal error:', err
-				pipe.send('error')
-				return
-			else:
-				print 'Debug: error in identifying captcha, retrying'
-		else: break
-	conn.request('GET', '/infoPortal/appmanager/myPortal/myDesktop?_nfpb=true&_pageLabel=myPortal_page_54', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid})
-	s = conn.getresponse().read()
-	table = re.search(r'<table class="pkuportal-table-portlet".*?>(.*?)</table>', s, re.DOTALL).group(0)
-	table = re.sub(r'&nbsp;', ' ', table)
-	dom = xmldom.parseString(table)
-	nodes = dom.firstChild.childNodes
-	portaldata = []
-	for i in range(3, len(nodes), 2):
-		portaldata.append(map(lambda x: x.firstChild.firstChild.data.strip(), [nodes[i].childNodes[1], nodes[i].childNodes[3], nodes[i].childNodes[5], nodes[i].childNodes[7], nodes[i].childNodes[9]]))
-	year, term = max(map(lambda x: x[: 2], portaldata))
-	portaldata = filter(lambda x: x[: 2] == [year, term], portaldata)
-	pipe.send(repr(portaldata))
-	conn.request('GET', '/infoPortal/logout.do', headers = {'Cookie': 'JSESSIONID=%s' % jsessionid})
-	conn.getresponse().read()
-	conn.close()
-
 def action_dean(pipe):
 	import httplib, urllib, re
 	import xml.dom.minidom as xmldom
@@ -71,7 +15,7 @@ def action_dean(pipe):
 	username, password = pipe.recv().split('\n')
 	for i in range(0, 2):
 		try:
-			conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
+			conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password, 'redirUrl': 'http://dean.pku.edu.cn/student/center2.php'}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
 			break
 		except:
 			conn.close()
@@ -93,46 +37,31 @@ def action_dean(pipe):
 	conn.request('GET', '/student/grade.php?PHPSESSID=%s' % phpsessid, headers = {'Cookie': 'PHPSESSID=%s' % phpsessid })
 	res = conn.getresponse()
 	s = res.read().decode('gbk').encode('utf-8')
-	t = re.sub(r'align=center colspan=5', '', re.sub(r'(<tr.*?>(<td.*?>.*?</td>)*)', r'\1</tr>', re.search(r'<table.*?>((<tr>.*?)*<tr type=\'text/css\' >.*?)*</table>', s).group(1)))
+	t = re.sub(r'align=center colspan=5', '', re.sub(r'(<tr.*?>(<td.*?>.*?</td>)*)', r'\1</tr>', re.search(r'<table.*?>(((<tr>|<tr type=\'text/css\' style=\'color:ff0000\'>).*?)*<tr type=\'text/css\' >.*?)*</table>', s).group(1)))
 	t = re.sub(r'&(\w+[^;])', r'&amp;\1', t) # ,b dean
 	dom = xmldom.parseString('<table>' + t + '</table>')
-	deandata = map(lambda y: map(lambda x: x.firstChild.data.strip(), y.childNodes[2: ]), dom.firstChild.childNodes[: -1])
+	deandata = map(lambda y: map(lambda x: '' if x.firstChild is None else x.firstChild.data.strip(), y.childNodes[2: ]), dom.firstChild.childNodes[: -1])
 	pipe.send(repr((deandata, dom.firstChild.childNodes[-1].childNodes[3].firstChild.firstChild.data.strip())))
 	conn.request('GET', '/student/exit.php?PHPSESSID=%s' % phpsessid, headers = {'Cookie': 'PHPSESSID=%s' % phpsessid })
 	conn.getresponse().read()
 	conn.close()
 
 if __name__ == '__main__':
-	portalpair = multiprocessing.Pipe()
 	deanpair = multiprocessing.Pipe()
-	portalp = multiprocessing.Process(target = action_portal, args = (portalpair[1], ))
 	deanp = multiprocessing.Process(target = action_dean, args = (deanpair[1], ))
-	portalp.start()
 	deanp.start()
 
 	import getpass, sys
 	sys.stderr.write('Username: ')
 	username = raw_input()
 	password = getpass.getpass()
-	portalpair[0].send(username + '\n' + password)
 	deanpair[0].send(username + '\n' + password)
-	portaldata = portalpair[0].recv()
 	deandata = deanpair[0].recv()
-	if portaldata == 'error' or deandata == 'error':
-		portalp.join()
+	if deandata == 'error':
 		deanp.join()
 		quit(1)
-	portaldata = eval(portaldata)
 	deandata, deangpa = eval(deandata)
 
-	for item in portaldata:
-		exists = False
-		for item2 in deandata:
-			if item2[3][: len(item[2])] == item[2]:
-				exists = True
-				break
-		if not exists:
-			deandata.append(['', item[4], item[3], item[2], '', ''])
 	for item in deandata:
 		while len(item[3].encode('gbk')) > 20: item[3] = item[3][: -1]
 		item[2] = item[2] + ' ' * (10 - len(item[2].encode('gbk')))
@@ -140,5 +69,4 @@ if __name__ == '__main__':
 		print "%8s %4s   %s %s %5s %6s" % tuple(item)
 	print '当前平均绩点:', deangpa
 
-	portalp.join()
 	deanp.join()
