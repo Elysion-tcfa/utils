@@ -45,7 +45,7 @@ while True:
 			print 'OK'
 			ret = 0
 			retry = False
-		elif re.search(r'口令错误', info):
+		elif re.search(r'口令错误', info) or re.search(r'请输入口令', info):
 			print 'Failed: Login error'
 			if os.access('.ipgw.conf', os.F_OK): os.remove('.ipgw.conf')
 			ret = 3

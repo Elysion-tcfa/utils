@@ -1,5 +1,5 @@
 #!/usr/bin/python2
-import pcap, dpkt, socket, sys
+import pcap, dpkt, socket, sys, binascii
 def process(ts, pkt):
 	eth = dpkt.ethernet.Ethernet(pkt)
 	ip = eth.data
@@ -9,10 +9,18 @@ def process(ts, pkt):
 			print '====================TCP/IPv4 packet from (%s, %d) to (%s, %d)====================' % (socket.inet_ntoa(ip.src), tcp.sport, socket.inet_ntoa(ip.dst), tcp.dport)
 			print tcp.data
 			print '================================================================================'
+		elif tcp.__class__ == dpkt.udp.UDP:
+			print '====================UDP/IPv4 packet from (%s, %d) to (%s, %d)====================' % (socket.inet_ntoa(ip.src), tcp.sport, socket.inet_ntoa(ip.dst), tcp.dport)
+			print tcp.data
+			print '================================================================================'
 	elif ip.__class__ == dpkt.ip6.IP6:
 		tcp = ip.data
 		if tcp.__class__ == dpkt.tcp.TCP:
 			print '====================TCP/IPv6 packet from (%s, %d) to (%s, %d)====================' % (socket.inet_ntop(socket.AF_INET6, ip.src), tcp.sport, socket.inet_ntop(socket.AF_INET6, ip.dst), tcp.dport)
+			print tcp.data
+			print '================================================================================'
+		elif tcp.__class__ == dpkt.udp.UDP:
+			print '====================UDP/IPv6 packet from (%s, %d) to (%s, %d)====================' % (socket.inet_ntop(socket.AF_INET6, ip.src), tcp.sport, socket.inet_ntop(socket.AF_INET6, ip.dst), tcp.dport)
 			print tcp.data
 			print '================================================================================'
 
