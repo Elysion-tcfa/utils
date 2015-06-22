@@ -3,38 +3,33 @@
 import multiprocessing
 
 def action_dean(pipe):
-	import httplib, urllib, re
+	import httplib, urllib, re, tempfile, os, pkucaptcha
 	import xml.dom.minidom as xmldom
 
 	username, password = None, None
-	conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
-	conn.request('POST', '/iaaa/oauth.jsp', urllib.urlencode({'appID': 'dean', 'appName': '北京大学教务部网上学生服务中心', 'redirectUrl': 'http://dean.pku.edu.cn/student/center2.php'}), {'Content-Type': 'application/x-www-form-urlencoded'})
-	res = conn.getresponse()
-	jsessionid = re.search(r'JSESSIONID=([^;]+)', res.getheader('Set-Cookie')).group(1)
-	res.read()
-	username, password = pipe.recv().split('\n')
-	for i in range(0, 2):
-		try:
-			conn.request('POST', '/iaaa/oauthlogin.do', urllib.urlencode({'appid': 'dean', 'userName': username, 'password': password, 'redirUrl': 'http://dean.pku.edu.cn/student/center2.php'}), {'Cookie': 'JSESSIONID=%s' % jsessionid, 'Content-Type': 'application/x-www-form-urlencoded'})
-			break
-		except:
-			conn.close()
-			conn = httplib.HTTPSConnection('iaaa.pku.edu.cn')
-	res = conn.getresponse()
-	s = res.read()
-	conn.close()
-	if s.find('"success":true') == -1:
-		err = re.search(r'"msg":"([^"]*)"', s).group(1)
-		print 'Dean error:', err
-		pipe.send('error')
-		return
-	token = re.search('"token":"(\w+)"', s).group(1)
 	conn = httplib.HTTPConnection('dean.pku.edu.cn')
-	conn.request('GET', '/student/center2.php?token=%s' % token)
+	conn.request('GET', '/student/yanzheng.php?act=init', headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0'})
 	res = conn.getresponse()
 	phpsessid = re.search(r'PHPSESSID=([^;]+)', res.getheader('Set-Cookie')).group(1)
+	img = res.read()
+	fp, path = tempfile.mkstemp(suffix='.gif')
+	fp = os.fdopen(fp, 'w')
+	fp.write(img)
+	fp.close()
+	yzm = pkucaptcha.identify(path)
+	os.remove(path)
+	username, password = pipe.recv().split('\n')
+	conn.request('POST', '/student/authenticate.php', urllib.urlencode({'sno': username, 'password': password, 'captcha': yzm}), headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid, 'Content-Type': 'application/x-www-form-urlencoded'})
+	s = conn.getresponse().read()
+	err = re.search(r'alert\("(.*?)"\)', s)
+	if err:
+		print 'Dean error:', err.group(1)
+		pipe.send('error')
+		return
+	conn.request('GET', '/student/student_index.php?PHPSESSID=%s' % phpsessid, headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid})
+	res = conn.getresponse()
 	res.read()
-	conn.request('GET', '/student/grade.php?PHPSESSID=%s' % phpsessid, headers = {'Cookie': 'PHPSESSID=%s' % phpsessid })
+	conn.request('GET', '/student/grade.php?PHPSESSID=%s' % phpsessid, headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid})
 	res = conn.getresponse()
 	s = res.read().decode('gbk').encode('utf-8')
 	t = re.sub(r'align=center colspan=5', '', re.sub(r'(<tr.*?>(<td.*?>.*?</td>)*)', r'\1</tr>', re.search(r'<table.*?>(((<tr>|<tr type=\'text/css\' style=\'color:ff0000\'>).*?)*<tr type=\'text/css\' >.*?)*</table>', s).group(1)))
@@ -42,7 +37,7 @@ def action_dean(pipe):
 	dom = xmldom.parseString('<table>' + t + '</table>')
 	deandata = map(lambda y: map(lambda x: '' if x.firstChild is None else x.firstChild.data.strip(), y.childNodes[2: ]), dom.firstChild.childNodes[: -1])
 	pipe.send(repr((deandata, dom.firstChild.childNodes[-1].childNodes[3].firstChild.firstChild.data.strip())))
-	conn.request('GET', '/student/exit.php?PHPSESSID=%s' % phpsessid, headers = {'Cookie': 'PHPSESSID=%s' % phpsessid })
+	conn.request('GET', '/student/exit.php?PHPSESSID=%s' % phpsessid, headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid})
 	conn.getresponse().read()
 	conn.close()
 
