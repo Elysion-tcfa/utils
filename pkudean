@@ -2,12 +2,30 @@
 # -*- coding: utf-8 -*-
 import multiprocessing
 
+def parse_dean(content):
+	import re
+	import xml.dom.minidom as xmldom
+	dean_regex = r'<table.*?>(((<tr>|<tr type=\'text/css\' style=\'color:ff0000\'>).*?)*(<tr type=\'text/css\' >|<tr type=\'text/css\' style=\'color:ff0000\'>)((<td>|<td align=center colspan=5>)(<b>)?[^<]*(</b>)?</td>)*)*</table>'
+	t = re.sub(r'align=center colspan=5', '', re.sub(r'(</td[^>]*>)\s*(<td[^>]*>)', r'\1\2', re.sub(r'(<tr.*?>(<td.*?>.*?</td>\s*)*)', r'\1</tr>', re.search(dean_regex, content, re.DOTALL).group(1), flags=re.DOTALL), flags=re.DOTALL))
+	t = re.sub(r'&(\w+[^;])', r'&amp;\1', t) # ,b dean
+	dom = xmldom.parseString('<table>' + t + '</table>')
+	deandata = map(lambda y: map(lambda x: '' if x.firstChild is None else x.firstChild.data.strip(), y.childNodes[2: ]), dom.firstChild.childNodes[: -1])
+	return ((deandata, dom.firstChild.childNodes[-1].childNodes[3].firstChild.firstChild.data.strip()))
+
+def show_table(data, gpa):
+	for item in data:
+		while len(item[3].encode('gbk')) > 20: item[3] = item[3][: -1]
+		item[2] = item[2] + ' ' * (10 - len(item[2].encode('gbk')))
+		item[3] = item[3] + ' ' * (20 - len(item[3].encode('gbk')))
+		print "%8s %4s   %s %s %5s %6s" % tuple(item)
+	print '当前平均绩点:', gpa
+
 def action_dean(pipe):
 	import httplib, urllib, re, tempfile, os, pkucaptcha
-	import xml.dom.minidom as xmldom
 
 	username, password = None, None
 	conn = httplib.HTTPConnection('dean.pku.edu.cn')
+
 	conn.request('GET', '/student/yanzheng.php?act=init', headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0'})
 	res = conn.getresponse()
 	phpsessid = re.search(r'PHPSESSID=([^;]+)', res.getheader('Set-Cookie')).group(1)
@@ -18,6 +36,7 @@ def action_dean(pipe):
 	fp.close()
 	yzm = pkucaptcha.identify(path)
 	os.remove(path)
+
 	username, password = pipe.recv().split('\n')
 	conn.request('POST', '/student/authenticate.php', urllib.urlencode({'sno': username, 'password': password, 'captcha': yzm}), headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid, 'Content-Type': 'application/x-www-form-urlencoded'})
 	s = conn.getresponse().read()
@@ -26,17 +45,25 @@ def action_dean(pipe):
 		print 'Dean error:', err.group(1)
 		pipe.send('error')
 		return
+
 	conn.request('GET', '/student/student_index.php?PHPSESSID=%s' % phpsessid, headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid})
 	res = conn.getresponse()
 	res.read()
+
 	conn.request('GET', '/student/grade.php?PHPSESSID=%s' % phpsessid, headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid})
 	res = conn.getresponse()
 	s = res.read().decode('gbk').encode('utf-8')
-	t = re.sub(r'align=center colspan=5', '', re.sub(r'(<tr.*?>(<td.*?>.*?</td>)*)', r'\1</tr>', re.search(r'<table.*?>(((<tr>|<tr type=\'text/css\' style=\'color:ff0000\'>).*?)*<tr type=\'text/css\' >.*?)*</table>', s).group(1)))
-	t = re.sub(r'&(\w+[^;])', r'&amp;\1', t) # ,b dean
-	dom = xmldom.parseString('<table>' + t + '</table>')
-	deandata = map(lambda y: map(lambda x: '' if x.firstChild is None else x.firstChild.data.strip(), y.childNodes[2: ]), dom.firstChild.childNodes[: -1])
-	pipe.send(repr((deandata, dom.firstChild.childNodes[-1].childNodes[3].firstChild.firstChild.data.strip())))
+	pipe.send(repr(parse_dean(s)))
+
+	conn.request('GET', '/student/fxsxw.php?PHPSESSID=%s' % phpsessid, headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid})
+	res = conn.getresponse()
+	s = res.read().decode('gbk').encode('utf-8')
+	try:
+		tosend = repr(parse_dean(s))
+	except:
+		tosend = 'error'
+	pipe.send(tosend)
+
 	conn.request('GET', '/student/exit.php?PHPSESSID=%s' % phpsessid, headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0', 'Cookie': 'PHPSESSID=%s' % phpsessid})
 	conn.getresponse().read()
 	conn.close()
@@ -51,17 +78,17 @@ if __name__ == '__main__':
 	username = raw_input()
 	password = getpass.getpass()
 	deanpair[0].send(username + '\n' + password)
+
 	deandata = deanpair[0].recv()
 	if deandata == 'error':
 		deanp.join()
 		quit(1)
 	deandata, deangpa = eval(deandata)
+	show_table(deandata, deangpa)
 
-	for item in deandata:
-		while len(item[3].encode('gbk')) > 20: item[3] = item[3][: -1]
-		item[2] = item[2] + ' ' * (10 - len(item[2].encode('gbk')))
-		item[3] = item[3] + ' ' * (20 - len(item[3].encode('gbk')))
-		print "%8s %4s   %s %s %5s %6s" % tuple(item)
-	print '当前平均绩点:', deangpa
+	deandata = deanpair[0].recv()
+	if deandata != 'error':
+		deandata, deangpa = eval(deandata)
+		show_table(deandata, deangpa)
 
 	deanp.join()
