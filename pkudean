@@ -15,7 +15,7 @@ def parse_dean(content):
 def parse_dean2(content):
 	import re
 	import xml.dom.minidom as xmldom
-	t = re.sub(r' align=center colspan=5', '', re.sub(r'<\/tr>(<td>.*?)(<tr>|<\/tbody>)', r'</tr><tr>\1</tr>\2', re.sub(r'<tr\/>', r'</tr>', re.search(r'(<tbody>.*<\/tbody>)', content).group(1))))
+	t = re.sub(r' align=center colspan=5', '', re.sub(r'<\/tr>(<td>.*?)(<tr>|<\/tbody>)', r'</tr><tr>\1</tr>\2', re.sub(r'<tr\/>', r'</tr>', re.search(r'(<tbody>.*?<\/tbody>)', content).group(1))))
 	t = re.sub(r'&(\w*[^;])', r'&amp;\1', t) # ,b dean
 	dom = xmldom.parseString(t)
 	indices = filter(lambda x: len(dom.firstChild.childNodes[x].childNodes) == 4, range(0, len(dom.firstChild.childNodes)))
